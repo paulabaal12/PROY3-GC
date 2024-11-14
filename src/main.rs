@@ -2,6 +2,7 @@ use nalgebra_glm::{Vec3, Vec4, Mat4, look_at, perspective};
 use minifb::{Key, Window, WindowOptions};
 use std::time::Duration;
 use std::f32::consts::PI;
+use rand::Rng;
 
 mod framebuffer;
 mod triangle;
@@ -371,7 +372,7 @@ fn main() {
         Planet::new(30.0, CelestialBody::OceanPlanet, 0.010),  
     ];
     let mut moon = Moon::new(1.5, 0.05);
-    
+    let skybox = Skybox::new(4000, 100.0); // 1000 estrellas, radio 100
     let mut time = 0u32;
     let mut selected_planet: Option<usize> = None;
     let zoom_scale = 3.0; 
@@ -412,10 +413,20 @@ fn main() {
         time += 1;
         handle_input(&window, &mut camera);
         framebuffer.clear();
+        
     
         let view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
         let projection_matrix = create_perspective_matrix(window_width as f32, window_height as f32);
         let viewport_matrix = create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32);
+            skybox.render(&mut framebuffer, &Uniforms {
+                model_matrix: Mat4::identity(),
+                view_matrix,
+                projection_matrix,
+                viewport_matrix,
+                time,
+                noise: create_noise(),
+                current_body: CelestialBody::Sun, 
+            });
 
         for planet in &planets {
             if planet.orbit_radius > 0.0 {
@@ -490,3 +501,85 @@ fn main() {
         std::thread::sleep(frame_delay);
     }
 }    
+
+
+pub struct Star {
+    position: Vec3,
+    brightness: f32,
+    size: f32,
+}
+
+pub struct Skybox {
+    stars: Vec<Star>,
+    radius: f32,
+}
+
+impl Skybox {
+    pub fn new(num_stars: usize, radius: f32) -> Self {
+        let mut rng = rand::thread_rng();
+        let mut stars = Vec::with_capacity(num_stars);
+
+        for _ in 0..num_stars {
+
+            let theta = rng.gen_range(0.0..2.0 * std::f32::consts::PI);
+            let phi = rng.gen_range(0.0..std::f32::consts::PI);
+            
+   
+            let x = radius * phi.sin() * theta.cos();
+            let y = radius * phi.sin() * theta.sin();
+            let z = radius * phi.cos();
+
+            stars.push(Star {
+                position: Vec3::new(x, y, z),
+                brightness: rng.gen_range(0.5..1.0),
+                size: rng.gen_range(1.0..2.0),
+            });
+        }
+
+        Skybox {
+            stars,
+            radius,
+        }
+    }
+
+    pub fn render(&self, framebuffer: &mut Framebuffer, uniforms: &Uniforms) {
+        for star in &self.stars {
+     
+            let world_pos = uniforms.view_matrix * nalgebra_glm::Vec4::new(
+                star.position.x,
+                star.position.y,
+                star.position.z,
+                1.0
+            );
+            
+            let mut transformed = uniforms.projection_matrix * world_pos;
+            transformed /= transformed.w;
+
+       
+            if transformed.z < 1.0 {
+                let screen_x = ((transformed.x + 1.0) * framebuffer.width as f32 / 2.0) as usize;
+                let screen_y = ((1.0 - transformed.y) * framebuffer.height as f32 / 2.0) as usize;
+
+           
+                let intensity = (star.brightness * 255.0) as u32;
+                let color = (intensity << 16) | (intensity << 8) | intensity;
+
+                if screen_x < framebuffer.width && screen_y < framebuffer.height {
+                    framebuffer.set_current_color(color);
+                    
+
+                    let size = star.size as usize;
+                    for dy in 0..size {
+                        for dx in 0..size {
+                            let px = screen_x.saturating_add(dx).saturating_sub(size/2);
+                            let py = screen_y.saturating_add(dy).saturating_sub(size/2);
+                            if px < framebuffer.width && py < framebuffer.height {
+                                framebuffer.point(px, py, 0.9999); 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
