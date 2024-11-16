@@ -372,7 +372,7 @@ fn main() {
         Planet::new(30.0, CelestialBody::OceanPlanet, 0.010),  
     ];
     let mut moon = Moon::new(1.5, 0.05);
-    let skybox = Skybox::new(4000, 100.0); // 1000 estrellas, radio 100
+    let skybox = Skybox::new(4000, 100.0); 
     let mut time = 0u32;
     let mut selected_planet: Option<usize> = None;
     let zoom_scale = 3.0; 
