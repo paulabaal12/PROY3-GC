@@ -1,7 +1,7 @@
 # PROY3-GC | SPACE TRAVEL 🌘⭐🚀🌎🪐
 
 ## Link del video ⭐🚀🪐:
-
+https://youtu.be/kFiUotsp7WM 
 ## Controles del Teclado 🎮🌌
 
 ### **Navegación de la Cámara**
