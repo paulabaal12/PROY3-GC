@@ -149,45 +149,54 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
 }
 
 fn handle_input(window: &Window, camera: &mut Camera) {
-    let movement_speed = 1.0;
-    let rotation_speed = PI/50.0;
-    let zoom_speed = 0.1;
-   
+    // Movimiento orbital con flechas
     if window.is_key_down(Key::Left) {
-        camera.orbit(rotation_speed, 0.0);
+        camera.orbit(-1.0, 0.0);
     }
     if window.is_key_down(Key::Right) {
-        camera.orbit(-rotation_speed, 0.0);
+        camera.orbit(1.0, 0.0);
     }
-    if window.is_key_down(Key::W) {
-        camera.orbit(0.0, -rotation_speed);
-    }
-    if window.is_key_down(Key::S) {
-        camera.orbit(0.0, rotation_speed);
-    }
-
-    let mut movement = Vec3::new(0.0, 0.0, 0.0);
-    if window.is_key_down(Key::A) {
-        movement.x -= movement_speed;
-    }
-    if window.is_key_down(Key::D) {
-        movement.x += movement_speed;
-    }
-    if window.is_key_down(Key::Q) {
-        movement.y += movement_speed;
-    }
-    if window.is_key_down(Key::E) {
-        movement.y -= movement_speed;
-    }
-    if movement.magnitude() > 0.0 {
-        camera.move_center(movement);
-    }
-
     if window.is_key_down(Key::Up) {
-        camera.zoom(zoom_speed);
+        camera.orbit(0.0, -1.0);
     }
     if window.is_key_down(Key::Down) {
-        camera.zoom(-zoom_speed);
+        camera.orbit(0.0, 1.0);
+    }
+
+    // Movimiento de traslación
+    if window.is_key_down(Key::W) {
+        camera.move_forward(1.0);
+    }
+    if window.is_key_down(Key::S) {
+        camera.move_forward(-1.0);
+    }
+    if window.is_key_down(Key::A) {
+        camera.move_right(-1.0);
+    }
+    if window.is_key_down(Key::D) {
+        camera.move_right(1.0);
+    }
+    if window.is_key_down(Key::Q) {
+        camera.move_up(1.0);
+    }
+    if window.is_key_down(Key::E) {
+        camera.move_up(-1.0);
+    }
+
+    // Zoom con Z y X
+    if window.is_key_down(Key::Z) {
+        camera.zoom(1.0);
+    }
+    if window.is_key_down(Key::X) {
+        camera.zoom(-1.0);
+    }
+
+    // Ajuste de velocidades
+    if window.is_key_down(Key::Equal) { // Tecla +
+        camera.set_movement_speed(camera.movement_speed * 1.1);
+    }
+    if window.is_key_down(Key::Minus) { // Tecla -
+        camera.set_movement_speed(camera.movement_speed * 0.9);
     }
 }
 
