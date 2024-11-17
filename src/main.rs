@@ -150,22 +150,23 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
 }
 
 fn handle_input(window: &Window, camera: &mut Camera) {
+    let speed = 6.0;
+
     // Movimiento orbital con flechas
     if window.is_key_down(Key::Left) {
-        camera.orbit(-1.0, 0.0);
+        camera.orbit(-1.0 * speed, 0.0);
     }
     if window.is_key_down(Key::Right) {
-        camera.orbit(1.0, 0.0);
+        camera.orbit(1.0 * speed, 0.0);
     }
     if window.is_key_down(Key::Up) {
-        camera.orbit(0.0, -1.0);
+        camera.orbit(0.0, -1.0 * speed);
     }
     if window.is_key_down(Key::Down) {
-        camera.orbit(0.0, 1.0);
+        camera.orbit(0.0, 1.0 * speed);
     }
-
     // Movimiento con WASD
-    let speed = if window.is_key_down(Key::LeftShift) { 2.0 } else { 1.0 };
+    let speed = if window.is_key_down(Key::LeftShift) { 10.0 } else { 5.0 };
     
     if window.is_key_down(Key::W) {
         camera.move_forward(speed);
@@ -337,7 +338,7 @@ fn draw_line(framebuffer: &mut Framebuffer, x0: usize, y0: usize, x1: usize, y1:
 fn main() {
     let window_width = 1200;
     let window_height = 900;
-    let framebuffer_width = 1200;
+    let framebuffer_width = 1000;
     let framebuffer_height = 900;
     let frame_delay = Duration::from_millis(16);
 
