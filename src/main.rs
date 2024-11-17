@@ -164,19 +164,22 @@ fn handle_input(window: &Window, camera: &mut Camera) {
         camera.orbit(0.0, 1.0);
     }
 
-    // Movimiento de traslación
+    // Movimiento con WASD
+    let speed = if window.is_key_down(Key::LeftShift) { 2.0 } else { 1.0 };
+    
     if window.is_key_down(Key::W) {
-        camera.move_forward(1.0);
+        camera.move_forward(speed);
     }
     if window.is_key_down(Key::S) {
-        camera.move_forward(-1.0);
+        camera.move_forward(-speed);
     }
     if window.is_key_down(Key::A) {
-        camera.move_right(-1.0);
+        camera.move_right(-speed);
     }
     if window.is_key_down(Key::D) {
-        camera.move_right(1.0);
+        camera.move_right(speed);
     }
+
     if window.is_key_down(Key::Q) {
         camera.move_up(1.0);
     }
@@ -190,14 +193,6 @@ fn handle_input(window: &Window, camera: &mut Camera) {
     }
     if window.is_key_down(Key::X) {
         camera.zoom(-1.0);
-    }
-
-    // Ajuste de velocidades
-    if window.is_key_down(Key::Equal) { // Tecla +
-        camera.set_movement_speed(camera.movement_speed * 1.1);
-    }
-    if window.is_key_down(Key::Minus) { // Tecla -
-        camera.set_movement_speed(camera.movement_speed * 0.9);
     }
 }
 
@@ -340,9 +335,9 @@ fn draw_line(framebuffer: &mut Framebuffer, x0: usize, y0: usize, x1: usize, y1:
     }
 }
 fn main() {
-    let window_width = 1600;
+    let window_width = 1200;
     let window_height = 900;
-    let framebuffer_width = 1600;
+    let framebuffer_width = 1200;
     let framebuffer_height = 900;
     let frame_delay = Duration::from_millis(16);
 
@@ -623,20 +618,20 @@ struct Spacecraft {
 impl Spacecraft {
     fn new() -> Self {
         Spacecraft {
-            position: Vec3::new(0.0, 5.0, -5.0),
+            position: Vec3::new(0.0, 7.0, -5.0), 
             rotation: Vec3::new(0.0, 0.0, 0.0),
             scale: 0.35, 
             velocity: Vec3::new(0.0, 0.0, 0.0),
             acceleration: 0.05, 
             screen_size: 0.05, 
             collision_radius: 0.3,
-            min_height: 3.0, // Altura mínima sobre el plano de las órbitas
+            min_height: 8.0, 
         }
     }
 
     fn update(&mut self, camera: &Camera) {
         // La nave sigue a la cámara 
-        let offset = Vec3::new(0.0, -0.5, -3.0); 
+        let offset = Vec3::new(0.0, 2.0, -3.0); // Aumentado offset.y de -0.5 a 2.0
         let camera_forward = (camera.center - camera.eye).normalize();
         let camera_right = camera_forward.cross(&camera.up).normalize();
 
@@ -651,9 +646,7 @@ impl Spacecraft {
         self.velocity = self.velocity * 0.8 + direction * self.acceleration;
         
         let mut new_position = self.position + self.velocity;
-        
         new_position.y = new_position.y.max(self.min_height);
-
         self.position = new_position;
         
         self.rotation.y = (-camera_forward.z).atan2(camera_forward.x);
