@@ -54,9 +54,30 @@ pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
       CelestialBody::OceanPlanet => ocean_planet_shader(fragment, uniforms),
       CelestialBody::AuroraPlanet => aurora_planet_shader(fragment, uniforms),
       CelestialBody::NaturePlanet => nature_planet_shader(fragment, uniforms),
+      CelestialBody::Spaceship => spaceship_shader(fragment, uniforms),
   }
 }
+fn spaceship_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+        let position = fragment.vertex_position;
+        let time = uniforms.time as f32 * 0.03;
+        let pure_white = Color::new(255, 255, 255);    
+        let soft_white = Color::new(245, 245, 245);    
+        let bright_white = Color::new(250, 250, 252);  
+    
+        let gradient = (position.y + 1.0) * 0.5;
 
+        let shine = (position.x * 2.0 + time).cos() * 0.5 + 0.5;
+        let shine_intensity = shine * 0.15; 
+    
+        let base_color = if gradient > 0.7 {
+            pure_white
+        } else {
+            soft_white.lerp(&bright_white, shine_intensity)
+        };
+
+        base_color * fragment.intensity * (0.95 + shine_intensity * 0.05)
+    }
+    
 fn colorful_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
     let position = fragment.vertex_position;
     let time = uniforms.time as f32 * 0.01;

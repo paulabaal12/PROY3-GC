@@ -34,6 +34,7 @@ pub enum CelestialBody {
     OceanPlanet,    
     NaturePlanet,   
     AuroraPlanet, 
+    Spaceship
 }
 
 pub struct Uniforms {
@@ -253,14 +254,14 @@ struct Planet {
 impl Planet {
     fn new(orbit_radius: f32, body_type: CelestialBody, orbit_speed: f32) -> Self {
         let scale = match body_type {
-            CelestialBody::Sun => 4.0,         // Aumenta el tamaño del Sol
-            CelestialBody::GasGiant => 3.0,    // Aumenta para planetas gaseosos
-            CelestialBody::RingedPlanet => 2.5, // Aumenta para planetas con anillos
-            CelestialBody::IcePlanet => 2.0,   // Aumenta para planetas de hielo
-            CelestialBody::RockyPlanet => 1.5, // Ajuste para planetas rocosos
-            CelestialBody::OceanPlanet => 1.7, // Ajuste para planetas oceánicos
-            CelestialBody::CloudyPlanet => 2.8, // Aumenta el tamaño para planetas con atmósferas densas (e.g., Tierra)
-            _ => 1.2,                          // Tamaño base para otros cuerpos celestes
+            CelestialBody::Sun => 4.0,        
+            CelestialBody::GasGiant => 3.0,    
+            CelestialBody::RingedPlanet => 2.5, 
+            CelestialBody::IcePlanet => 2.0,   
+            CelestialBody::RockyPlanet => 1.5, 
+            CelestialBody::OceanPlanet => 1.7,
+            CelestialBody::CloudyPlanet => 2.8, 
+            _ => 1.2,                         
         };
         
 
@@ -338,7 +339,6 @@ fn draw_line(framebuffer: &mut Framebuffer, x0: usize, y0: usize, x1: usize, y1:
         }
     }
 }
-
 fn main() {
     let window_width = 1600;
     let window_height = 900;
@@ -364,8 +364,14 @@ fn main() {
         Vec3::new(0.0, 1.0, 0.0)
     );
 
+    // Carga los modelos 3D
     let obj = Obj::load("assets/sphere.obj").expect("Failed to load obj");
+    let spacecraft_obj = Obj::load("assets/nave.obj").expect("Failed to load spacecraft");
     let vertex_arrays = obj.get_vertex_array();
+    let spacecraft_vertex_arrays = spacecraft_obj.get_vertex_array();
+    
+    // Inicializa la nave
+    let mut spacecraft = Spacecraft::new();
     
     let mut planets = vec![
         Planet::new(0.0, CelestialBody::Sun, 0.0),        
@@ -388,6 +394,7 @@ fn main() {
     let moon_zoom_scale = 2.0;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        // Manejo de selección de planetas
         for (i, key) in [Key::Key1, Key::Key2, Key::Key3, Key::Key4, Key::Key5, 
                          Key::Key6, Key::Key7, Key::Key8, Key::Key9]
                          .iter()
@@ -399,15 +406,13 @@ fn main() {
                     moon.scale = 1.2;            
                     moon.orbit_radius = 1.5;      
                 } else {
-                  
                     if let Some(prev) = selected_planet {
                         planets[prev].scale = planets[prev].original_scale;
                     }
-                  
+                    
                     selected_planet = Some(i);
                     planets[i].scale = planets[i].original_scale * zoom_scale;
     
-               
                     if matches!(planets[i].body_type, CelestialBody::CloudyPlanet) {
                         moon.scale = 1.2 * moon_zoom_scale;       
                         moon.orbit_radius = 1.5 * moon_zoom_scale; 
@@ -422,21 +427,30 @@ fn main() {
         time += 1;
         handle_input(&window, &mut camera);
         framebuffer.clear();
-        
-    
+
+        // Actualiza la nave y verifica colisiones
+        spacecraft.update(&camera);
+        if spacecraft.check_collisions(&planets, &moon) {
+            spacecraft.position -= spacecraft.velocity;
+            spacecraft.velocity = Vec3::new(0.0, 0.0, 0.0);
+        }
+
         let view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
         let projection_matrix = create_perspective_matrix(window_width as f32, window_height as f32);
         let viewport_matrix = create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32);
-            skybox.render(&mut framebuffer, &Uniforms {
-                model_matrix: Mat4::identity(),
-                view_matrix,
-                projection_matrix,
-                viewport_matrix,
-                time,
-                noise: create_noise(),
-                current_body: CelestialBody::Sun, 
-            });
 
+        // 1. Renderiza el skybox primero
+        skybox.render(&mut framebuffer, &Uniforms {
+            model_matrix: Mat4::identity(),
+            view_matrix,
+            projection_matrix,
+            viewport_matrix,
+            time,
+            noise: create_noise(),
+            current_body: CelestialBody::Sun, 
+        });
+
+        // 2. Renderiza las órbitas de los planetas
         for planet in &planets {
             if planet.orbit_radius > 0.0 {
                 let uniforms = Uniforms {
@@ -450,10 +464,11 @@ fn main() {
                 };
                 
                 framebuffer.set_current_color(0x404040);
-                draw_orbit(&mut framebuffer, planet.orbit_radius, &uniforms, 0.99999);
+                draw_orbit(&mut framebuffer, planet.orbit_radius, &uniforms, 0.9999);
             }
         }
 
+        // 3. Actualiza y renderiza planetas
         let mut earth_position = Vec3::new(0.0, 0.0, 0.0);
         for planet in planets.iter_mut() {
             planet.update();
@@ -481,6 +496,7 @@ fn main() {
             render(&mut framebuffer, &uniforms, &vertex_arrays);
         }
 
+        // 4. Actualiza y renderiza la luna y su órbita
         moon.update(earth_position);
         
         let moon_model_matrix = create_model_matrix(
@@ -500,18 +516,31 @@ fn main() {
         };
 
         framebuffer.set_current_color(0x303030);
-        draw_orbit(&mut framebuffer, moon.orbit_radius, &moon_uniforms, 0.99999);
+        draw_orbit(&mut framebuffer, moon.orbit_radius, &moon_uniforms, 0.99);
         render(&mut framebuffer, &moon_uniforms, &vertex_arrays);
 
+        // 5. Renderiza la nave espacial al final
+        let spacecraft_model_matrix = spacecraft.get_model_matrix(&camera);
+        let spacecraft_uniforms = Uniforms {
+            model_matrix: spacecraft_model_matrix,
+            view_matrix,
+            projection_matrix,
+            viewport_matrix,
+            time,
+            noise: create_noise(),
+            current_body: CelestialBody::Spaceship,
+        };
+        
+        render(&mut framebuffer, &spacecraft_uniforms, &spacecraft_vertex_arrays);
+
+        // Actualiza la ventana
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
             .unwrap();
     
         std::thread::sleep(frame_delay);
     }
-}    
-
-
+}
 pub struct Star {
     position: Vec3,
     brightness: f32,
@@ -526,34 +555,22 @@ pub struct Skybox {
 impl Skybox {
     pub fn new(num_stars: usize, radius: f32) -> Self {
         let mut rng = rand::thread_rng();
-        let mut stars = Vec::with_capacity(num_stars);
-
-        for _ in 0..num_stars {
-
-            let theta = rng.gen_range(0.0..2.0 * std::f32::consts::PI);
-            let phi = rng.gen_range(0.0..std::f32::consts::PI);
-            
-   
-            let x = radius * phi.sin() * theta.cos();
-            let y = radius * phi.sin() * theta.sin();
-            let z = radius * phi.cos();
-
-            stars.push(Star {
-                position: Vec3::new(x, y, z),
+        let stars = (0..num_stars).map(|_| {
+            Star {
+                position: Vec3::new(
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                ).normalize() * radius,
                 brightness: rng.gen_range(0.5..1.0),
-                size: rng.gen_range(1.0..2.0),
-            });
-        }
+                size: rng.gen_range(1.0..3.0),
+            }
+        }).collect();
 
-        Skybox {
-            stars,
-            radius,
-        }
+        Skybox { stars, radius }
     }
-
     pub fn render(&self, framebuffer: &mut Framebuffer, uniforms: &Uniforms) {
         for star in &self.stars {
-     
             let world_pos = uniforms.view_matrix * nalgebra_glm::Vec4::new(
                 star.position.x,
                 star.position.y,
@@ -564,18 +581,15 @@ impl Skybox {
             let mut transformed = uniforms.projection_matrix * world_pos;
             transformed /= transformed.w;
 
-       
             if transformed.z < 1.0 {
                 let screen_x = ((transformed.x + 1.0) * framebuffer.width as f32 / 2.0) as usize;
                 let screen_y = ((1.0 - transformed.y) * framebuffer.height as f32 / 2.0) as usize;
 
-           
                 let intensity = (star.brightness * 255.0) as u32;
                 let color = (intensity << 16) | (intensity << 8) | intensity;
 
                 if screen_x < framebuffer.width && screen_y < framebuffer.height {
                     framebuffer.set_current_color(color);
-                    
 
                     let size = star.size as usize;
                     for dy in 0..size {
@@ -583,12 +597,99 @@ impl Skybox {
                             let px = screen_x.saturating_add(dx).saturating_sub(size/2);
                             let py = screen_y.saturating_add(dy).saturating_sub(size/2);
                             if px < framebuffer.width && py < framebuffer.height {
-                                framebuffer.point(px, py, 0.9999); 
+                                // Cambiamos la profundidad a 1.0 para que las estrellas estén en el fondo
+                                framebuffer.point(px, py, 1.0); 
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+//nave
+struct Spacecraft {
+    position: Vec3,
+    rotation: Vec3,
+    scale: f32,
+    velocity: Vec3,
+    acceleration: f32,
+    screen_size: f32, 
+    collision_radius: f32,
+    min_height: f32, 
+}
+
+impl Spacecraft {
+    fn new() -> Self {
+        Spacecraft {
+            position: Vec3::new(0.0, 5.0, -5.0),
+            rotation: Vec3::new(0.0, 0.0, 0.0),
+            scale: 0.35, 
+            velocity: Vec3::new(0.0, 0.0, 0.0),
+            acceleration: 0.05, 
+            screen_size: 0.05, 
+            collision_radius: 0.3,
+            min_height: 3.0, // Altura mínima sobre el plano de las órbitas
+        }
+    }
+
+    fn update(&mut self, camera: &Camera) {
+        // La nave sigue a la cámara 
+        let offset = Vec3::new(0.0, -0.5, -3.0); 
+        let camera_forward = (camera.center - camera.eye).normalize();
+        let camera_right = camera_forward.cross(&camera.up).normalize();
+
+        let mut target_position = camera.eye 
+            + camera_forward * offset.z 
+            + camera.up * offset.y 
+            + camera_right * offset.x;
+    
+        target_position.y = target_position.y.max(self.min_height);
+        
+        let direction = target_position - self.position;
+        self.velocity = self.velocity * 0.8 + direction * self.acceleration;
+        
+        let mut new_position = self.position + self.velocity;
+        
+        new_position.y = new_position.y.max(self.min_height);
+
+        self.position = new_position;
+        
+        self.rotation.y = (-camera_forward.z).atan2(camera_forward.x);
+        self.rotation.x = (camera_forward.y).asin();
+    }
+
+    fn check_collisions(&self, planets: &[Planet], moon: &Moon) -> bool {
+
+        if self.position.y <= self.min_height + 1.0 {
+            for planet in planets {
+                let distance = (self.position - planet.position).magnitude();
+                let collision_distance = self.collision_radius + planet.scale * 0.9;
+                
+                if distance < collision_distance {
+                    return true;
+                }
+            }
+
+            let moon_distance = (self.position - moon.position).magnitude();
+            let moon_collision_distance = self.collision_radius + moon.scale * 0.9;
+            
+            if moon_distance < moon_collision_distance {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn get_model_matrix(&self, camera: &Camera) -> Mat4 {
+        let distance = (self.position - camera.eye).magnitude();
+        let scale_factor = distance * self.screen_size;
+        
+        create_model_matrix(
+            self.position,
+            self.scale * scale_factor,
+            self.rotation
+        )
     }
 }
